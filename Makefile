@@ -7,8 +7,8 @@ BUILD_TARGET      ?= X310_AA
 JOBS              ?= $(shell nproc)
 SUDO              ?= sudo
 
-UHD_PATCH_REPO   ?= git@gitlab.home.lan:yuriy/uhd-x310-aurora-patches.git
-RFNOC_PATCH_REPO ?= git@gitlab.home.lan:yuriy/rfnoc-oot-blocks-x310-aurora-patches.git
+UHD_PATCH_REPO   ?= https://github.com/crimea82/uhd-x310-aurora-patches.git
+RFNOC_PATCH_REPO ?= https://github.com/crimea82/rfnoc-oot-blocks-x310-aurora-patches.git
 
 # -------------------------------------------------------------------
 # Derived paths
