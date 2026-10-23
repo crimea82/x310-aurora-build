@@ -14,6 +14,30 @@ Automated build of the full X310 Aurora RFNoC stack from source:
 - CMake 3.12+, GCC with C++17 support
 - `sudo` access for installing to `INSTALL_PREFIX`
 
+## Quick start
+
+```bash
+git clone https://github.com/crimea82/x310-aurora-build.git
+cd x310-aurora-build
+make
+```
+
+`make` will:
+1. Clone `uhd-x310-aurora-patches` from GitHub and apply patches to UHD 4.10.0.0
+2. Build and install the UHD host library and tools to `/usr/local`
+3. Clone `rfnoc-oot-blocks-x310-aurora-patches` from GitHub and apply patches
+4. Build and install the rfnoc-oot-blocks host library to `/usr/local`
+5. Run `rfnoc_image_builder` with Vivado 2024.2 to produce the X310 Aurora bitfile
+
+The install steps (`cmake --install`) require `sudo`. Set `SUDO=` to skip if running
+as root.
+
+If Vivado is not at `/tools/Xilinx/Vivado`, pass the base path:
+
+```bash
+make VIVADO_PATH=/opt/Xilinx/Vivado
+```
+
 ## Usage
 
 ```bash
