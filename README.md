@@ -5,7 +5,7 @@ Automated build of the full X310 Aurora RFNoC stack from source:
 1. Clone and patch UHD 4.10.0.0
 2. Build and install the UHD host library and tools
 3. Clone and patch rfnoc-oot-blocks
-4. Build and install the rfnoc-oot-blocks host library (registers Aurora block with UHD)
+4. Build and install the rfnoc-oot-blocks host library (registers Aurora block with UHD) and, if pybind11 is present, the `rfnoc_oot_blocks` Python bindings
 5. Run `rfnoc_image_builder` to produce the FPGA bitfile
 
 ## Prerequisites
@@ -13,6 +13,16 @@ Automated build of the full X310 Aurora RFNoC stack from source:
 - Vivado 2024.2 installed (for bitfile generation)
 - CMake 3.12+, GCC with C++17 support
 - `sudo` access for installing to `INSTALL_PREFIX`
+- For the `rfnoc_oot_blocks` Python bindings (optional, used by the Python
+  examples): `pybind11-dev`, `python3-dev` and `python3-numpy`. On Ubuntu 22.04:
+
+  ```bash
+  sudo apt install pybind11-dev python3-pybind11 python3-dev python3-numpy
+  ```
+
+  If pybind11 is missing, step 4 silently builds only the C++ library. Install
+  it before running `make`; the patched `rfnoc-oot-blocks/README.md` explains
+  how to verify the bindings afterwards.
 
 ## Quick start
 
@@ -59,8 +69,8 @@ All variables can be overridden on the command line:
 | `BUILD_TARGET` | `X310_AA` | `X310_AA` (Aurora SFP0) or `X310_AA1` (Aurora SFP1) |
 | `JOBS` | `nproc` | Parallel build jobs |
 | `SUDO` | `sudo` | Set to empty string if running as root |
-| `UHD_PATCH_REPO` | gitlab.home.lan | URL of the UHD patch repo |
-| `RFNOC_PATCH_REPO` | gitlab.home.lan | URL of the rfnoc-oot-blocks patch repo |
+| `UHD_PATCH_REPO` | `https://github.com/crimea82/uhd-x310-aurora-patches.git` | URL of the UHD patch repo |
+| `RFNOC_PATCH_REPO` | `https://github.com/crimea82/rfnoc-oot-blocks-x310-aurora-patches.git` | URL of the rfnoc-oot-blocks patch repo |
 
 Example — build the SFP1 Aurora variant with a custom Vivado path:
 
