@@ -125,12 +125,17 @@ and only the bitfile phase runs in the container.
 ### Usage
 
 ```bash
-docker/build.sh                      # build the image (~15 min on 8 cores, needs network)
+docker/build.sh                      # build the image (~20 min on 8 cores, needs network)
 docker/run.sh license-check          # ~2 min: Vivado starts and checks out a K7 license
 docker/run.sh                        # build the bitfile (X310_AA), ~25 min on 8 cores
 BUILD_TARGET=X310_AA1 docker/run.sh  # the SFP1 variant
+docker/run.sh rpms                   # write the RPMs to ./output/rpms (no Vivado needed)
 docker/run.sh bash                   # interactive shell in the image
 ```
+
+`docker/build.sh` also builds and self-tests the RPM packages (see
+[RPM packages](#rpm-packages)); set `TARGET=builder` to skip that while
+iterating on the bitfile flow.
 
 Results are copied to `./output/` on the host (`usrp_x310_fpga_Aurora*.bit`,
 `.bin`, `.lvbitx`, `.rpt`, plus the Vivado logs under `output/build-usrp_x310_fpga_*/`)
@@ -175,6 +180,82 @@ actually checks out a Kintex-7 license. Run it before the long build.
   license file if Vivado suddenly refuses to synthesize.
 - The VM has 15 GB of RAM; Kintex-7 410T synthesis needs 8-10 GB. The container
   runs without a memory limit. Lower `JOBS` if the host starts swapping.
+
+## RPM packages
+
+The image also builds RPMs of the whole software stack so that any Oracle
+Linux 8 (or RHEL 8 compatible) system can install it with `dnf`, without a
+source build:
+
+| Package | Contents |
+|---|---|
+| `uhd` | Patched UHD 4.10.0.0: `libuhd`, utilities, Python 3.11 API (`import uhd`), `rfnoc_image_builder`, `rfnoc_modtool`, udev rules |
+| `uhd-devel` | Headers, CMake config, pkg-config file |
+| `rfnoc-oot-blocks` | Aurora block controller (registered with UHD via `modules.d`), `rfnoc_oot_blocks` Python bindings, block YAML and FPGA sources under `/usr/share/uhd/rfnoc`, image core files, Python examples |
+| `rfnoc-oot-blocks-devel` | Headers and CMake config |
+| `python3.11-mako`, `python3.11-ruamel-yaml` | Python 3.11 modules needed by `rfnoc_image_builder` that OL8 does not ship |
+| `uhd-images-x310-aurora` | The X310 Aurora bitfiles, installed to `/usr/share/uhd/images` |
+
+The spec files live in `rpm/`; `docker/build-rpms.sh` runs them in the
+`rpmbuild` Dockerfile stage, in a clean OL8 environment, in dependency order.
+A separate `rpmtest` stage then installs the results on a stock `oraclelinux:8`
+and runs import/tool checks, so a successful `docker/build.sh` means the
+packages are known to install on a fresh system. The packages are built with
+prefix `/usr`, so the Python modules are on `sys.path` and `modules.d` is
+found without any environment tweaks.
+
+```bash
+docker/run.sh rpms          # -> ./output/rpms/*.rpm + repodata/
+```
+
+The `rpms` mode copies the software RPMs out of the image, packages any
+`usrp_x310_fpga_Aurora*` bitfiles found (from the current `./output` or the
+container's last build) into `uhd-images-x310-aurora`, and runs `createrepo_c`
+so `./output/rpms` can be used as a dnf repository. A `docker/run.sh` bitfile
+build does the same after it succeeds.
+
+### Installing on a target OL8 system
+
+```bash
+sudo dnf -y install oracle-epel-release-el8 dnf-utils
+sudo dnf config-manager --set-enabled ol8_codeready_builder
+sudo dnf -y install ./rpms/*.rpm          # or copy only the packages you need
+```
+
+EPEL and CodeReady are required for the runtime dependencies (`boost1.78`,
+`python3.11-markupsafe`, `python3.11-pybind11`). Alternatively point dnf at the
+directory as a repository:
+
+```bash
+sudo dnf config-manager --add-repo file:///path/to/rpms
+sudo dnf -y --nogpgcheck install uhd rfnoc-oot-blocks uhd-images-x310-aurora
+```
+
+Verify:
+
+```bash
+uhd_config_info --version
+python3.11 -c "import uhd, rfnoc_oot_blocks; print(uhd.__version__)"
+rfnoc_image_builder --help
+uhd_image_loader --args "type=x300,addr=192.168.20.2" \
+    --fpga-path /usr/share/uhd/images/usrp_x310_fpga_Aurora.bit
+```
+
+Notes:
+
+- Everything is built for the `python3.11` stream. Run scripts with
+  `python3.11` (or `alternatives --set python3 /usr/bin/python3.11`); the
+  installed tools already have `python3.11` shebangs.
+- Compiling your own code against `uhd-devel` needs `gcc-toolset-13`
+  (`scl enable gcc-toolset-13 bash`) and `-DBoost_DIR=/usr/lib64/cmake/Boost-1.78.0`.
+- The `uhd` package is version 4.10.0.0 and replaces EPEL's `uhd` 3.15 if that
+  was installed.
+- `rfnoc_image_builder` prints a warning that `jsonschema` is not installed;
+  OL8 has no `python3.11-jsonschema` package. It only disables schema
+  validation of the YAML inputs and is harmless.
+- Building new bitfiles on a target still needs Vivado and the patched UHD
+  `fpga/` tree (`-F`); the Aurora block's own YAML and gateware are already
+  installed under `/usr/share/uhd/rfnoc`.
 
 ## Network configuration
 

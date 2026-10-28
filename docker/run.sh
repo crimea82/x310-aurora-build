@@ -4,7 +4,10 @@
 #
 #   docker/run.sh                 build the bitfile (BUILD_TARGET=X310_AA default)
 #   docker/run.sh license-check   quick Vivado start + license checkout test
+#   docker/run.sh rpms            write the RPMs (+ images RPM, repodata) to ./output/rpms
 #   docker/run.sh bash            interactive shell for debugging
+#
+# Only "build" and "license-check" need Vivado and the license file.
 #
 # Environment overrides: BUILD_TARGET, JOBS, VIVADO_DIR (host dir mounted at
 # /tools/Xilinx), LICENSE_FILE (host license file), IMAGE, OUTPUT_DIR, BUILD_IP_DIR.
@@ -15,14 +18,25 @@ VIVADO_DIR="${VIVADO_DIR:-/tools/Xilinx}"
 LICENSE_FILE="${LICENSE_FILE:-$HOME/.Xilinx/Xilinx_trial.lic}"
 OUTPUT_DIR="${OUTPUT_DIR:-$PWD/output}"
 
-if [ ! -x "$VIVADO_DIR/Vivado/2024.2/bin/vivado" ]; then
-    echo "ERROR: $VIVADO_DIR/Vivado/2024.2/bin/vivado not found (set VIVADO_DIR)" >&2
-    exit 1
-fi
-if [ ! -r "$LICENSE_FILE" ]; then
-    echo "ERROR: license file $LICENSE_FILE not readable (set LICENSE_FILE)" >&2
-    exit 1
-fi
+MODE="${1:-build}"
+vivado_mounts=()
+case "$MODE" in
+    build|license-check)
+        if [ ! -x "$VIVADO_DIR/Vivado/2024.2/bin/vivado" ]; then
+            echo "ERROR: $VIVADO_DIR/Vivado/2024.2/bin/vivado not found (set VIVADO_DIR)" >&2
+            exit 1
+        fi
+        if [ ! -r "$LICENSE_FILE" ]; then
+            echo "ERROR: license file $LICENSE_FILE not readable (set LICENSE_FILE)" >&2
+            exit 1
+        fi
+        vivado_mounts=(
+            -v "$VIVADO_DIR:/tools/Xilinx:ro"
+            -v "$LICENSE_FILE:/licenses/Xilinx.lic:ro"
+            -e XILINXD_LICENSE_FILE=/licenses/Xilinx.lic
+        )
+        ;;
+esac
 mkdir -p "$OUTPUT_DIR"
 
 # Optional: persist the generated-IP cache between runs to skip IP regeneration.
@@ -42,9 +56,7 @@ if [ -t 0 ] && [ -t 1 ]; then tty_flags=(-it); fi
 exec docker run --rm "${tty_flags[@]}" \
     --network host \
     --shm-size=2g \
-    -v "$VIVADO_DIR:/tools/Xilinx:ro" \
-    -v "$LICENSE_FILE:/licenses/Xilinx.lic:ro" \
-    -e XILINXD_LICENSE_FILE=/licenses/Xilinx.lic \
+    "${vivado_mounts[@]}" \
     -v "$OUTPUT_DIR:/output" \
     "${extra_mounts[@]}" \
     -e BUILD_TARGET="${BUILD_TARGET:-X310_AA}" \
