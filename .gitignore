@@ -1,3 +1,5 @@
 uhd-patches/
 rfnoc-patches/
 .stamps/
+output/
+build-ip/

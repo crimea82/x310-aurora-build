@@ -1,0 +1,7 @@
+# Keep the multi-GB source/build trees out of the docker build context.
+uhd-patches/
+rfnoc-patches/
+.stamps/
+output/
+.git/
+build-ip/

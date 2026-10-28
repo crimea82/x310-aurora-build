@@ -10,6 +10,11 @@ SUDO              ?= sudo
 UHD_PATCH_REPO   ?= https://github.com/crimea82/uhd-x310-aurora-patches.git
 RFNOC_PATCH_REPO ?= https://github.com/crimea82/rfnoc-oot-blocks-x310-aurora-patches.git
 
+# Extra arguments appended to the CMake configure step of each project
+# (e.g. -DPYTHON_EXECUTABLE=... or Boost hints on distros with old packages).
+UHD_CMAKE_ARGS    ?=
+RFNOC_CMAKE_ARGS  ?=
+
 # -------------------------------------------------------------------
 # Derived paths
 # -------------------------------------------------------------------
@@ -53,7 +58,7 @@ $(STAMPS)/uhd-patched: $(UHD_PATCHES_DIR)/Makefile
 # -------------------------------------------------------------------
 $(STAMPS)/uhd-built: $(STAMPS)/uhd-patched
 	cd $(UHD_SRC_DIR)/host && \
-	    cmake -B build -DCMAKE_INSTALL_PREFIX=$(INSTALL_PREFIX) && \
+	    cmake -B build -DCMAKE_INSTALL_PREFIX=$(INSTALL_PREFIX) $(UHD_CMAKE_ARGS) && \
 	    cmake --build build -j$(JOBS)
 	@touch $@
 
@@ -77,7 +82,7 @@ $(STAMPS)/rfnoc-patched: $(RFNOC_PATCHES_DIR)/Makefile
 # -------------------------------------------------------------------
 $(STAMPS)/rfnoc-built: $(STAMPS)/rfnoc-patched $(STAMPS)/uhd-installed
 	cd $(RFNOC_SRC_DIR) && \
-	    cmake -B build -DCMAKE_INSTALL_PREFIX=$(INSTALL_PREFIX) && \
+	    cmake -B build -DCMAKE_INSTALL_PREFIX=$(INSTALL_PREFIX) $(RFNOC_CMAKE_ARGS) && \
 	    cmake --build build -j$(JOBS)
 	@touch $@
 
