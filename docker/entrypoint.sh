@@ -44,16 +44,15 @@ preflight() {
     grep -m1 -oE 'HOSTID=[0-9a-fA-F]+' "$XILINXD_LICENSE_FILE" | sed 's/^/== License file: /' || true
 }
 
-# Build the noarch uhd-images-x310-aurora RPM from the bitfiles in the OOT
-# build dir (fresh build) or, failing that, from bitfiles already in /output.
+# Build the noarch uhd-images-x310-aurora RPM from all bitfiles in /output.
+# copy_outputs() has already placed a fresh build there, so a build for one
+# target is packaged together with earlier builds of the other target.
 build_images_rpm() {
     local src tmp
     shopt -s nullglob
-    local fresh=("$OOT_DIR"/build/usrp_x310_fpga_Aurora*.{bit,bin,lvbitx,rpt})
-    local prev=("$OUTPUT_DIR"/usrp_x310_fpga_Aurora*.{bit,bin,lvbitx,rpt})
+    local files=("$OUTPUT_DIR"/usrp_x310_fpga_Aurora*.{bit,bin,lvbitx,rpt})
     shopt -u nullglob
-    if [ ${#fresh[@]} -gt 0 ]; then src="$OOT_DIR/build"
-    elif [ ${#prev[@]} -gt 0 ]; then src="$OUTPUT_DIR"
+    if [ ${#files[@]} -gt 0 ]; then src="$OUTPUT_DIR"
     else
         echo "== No usrp_x310_fpga_Aurora* bitfiles found; skipping the images RPM"
         return 0

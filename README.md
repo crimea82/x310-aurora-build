@@ -131,6 +131,7 @@ docker/run.sh                        # build the bitfile (X310_AA), ~25 min on 8
 BUILD_TARGET=X310_AA1 docker/run.sh  # the SFP1 variant
 docker/run.sh rpms                   # write the RPMs to ./output/rpms (no Vivado needed)
 docker/run.sh bash                   # interactive shell in the image
+docker/build-all.sh X310_AA1         # all of the above in one go for one target
 ```
 
 `docker/build.sh` also builds and self-tests the RPM packages (see
