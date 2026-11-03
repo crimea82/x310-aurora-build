@@ -1,12 +1,9 @@
 # X310 Aurora Build
 
-Automated build of the full X310 Aurora RFNoC stack from source:
-
-1. Clone and patch UHD 4.10.0.0
-2. Build and install the UHD host library and tools
-3. Clone and patch rfnoc-oot-blocks
-4. Build and install the rfnoc-oot-blocks host library (registers Aurora block with UHD) and, if pybind11 is present, the `rfnoc_oot_blocks` Python bindings
-5. Run `rfnoc_image_builder` to produce the FPGA bitfile
+Builds the X310 Aurora RFNoC stack from source: patched UHD 4.10.0.0, the
+rfnoc-oot-blocks Aurora block with its Python bindings, and the X310 FPGA
+bitfile. It can run in an Oracle Linux 8 Docker container, which also produces
+RPMs, or natively with `make`.
 
 ## Prerequisites
 
@@ -39,7 +36,8 @@ nothing is installed on the host and the host's UHD installation is untouched.
   sudo apt install pybind11-dev python3-pybind11 python3-dev python3-numpy
   ```
 
-  If pybind11 is missing, step 4 silently builds only the C++ library. Install
+  If pybind11 is missing, the rfnoc-oot-blocks build silently produces only
+  the C++ library. Install
   it before running `make`; the patched `rfnoc-oot-blocks/README.md` explains
   how to verify the bindings afterwards.
 
