@@ -26,6 +26,23 @@ Automated build of the full X310 Aurora RFNoC stack from source:
 
 ## Quick start
 
+### Option A: Docker (Oracle Linux 8 container, recommended)
+
+Builds everything inside a container, so the host only needs Docker and a
+Vivado 2024.2 install with its license file (see
+[Docker build](#docker-build-oracle-linux-8) for details):
+
+```bash
+git clone https://github.com/crimea82/x310-aurora-build.git
+cd x310-aurora-build
+docker/build-all.sh X310_AA1    # or X310_AA; takes ~1 h on 8 cores
+```
+
+This builds the image, runs the Vivado license check, generates the bitfile and
+writes the bitfiles and RPMs to `./output/`.
+
+### Option B: Native build with `make`
+
 ```bash
 git clone https://github.com/crimea82/x310-aurora-build.git
 cd x310-aurora-build
