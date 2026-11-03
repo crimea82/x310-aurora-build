@@ -10,6 +10,25 @@ Automated build of the full X310 Aurora RFNoC stack from source:
 
 ## Prerequisites
 
+Both routes need Vivado 2024.2 on the host for bitfile generation. The Docker
+route needs nothing else beyond Docker; the native route needs the toolchain
+installed on the host.
+
+### Docker build
+
+- Docker (on Ubuntu: `sudo apt install docker.io && sudo usermod -aG docker $USER`,
+  then log out and back in).
+- Vivado 2024.2 installed on the host under `/tools/Xilinx` (override with
+  `VIVADO_DIR=/path/to/Xilinx`, the directory that contains `Vivado/2024.2`).
+- A Vivado license file, by default `~/.Xilinx/Xilinx_trial.lic` (override with
+  `LICENSE_FILE=...`). A node-locked license keeps working because the container
+  runs with `--network host` and sees the host's MAC address.
+
+The compilers, CMake, Boost, Python and pybind11 all live inside the image, so
+nothing is installed on the host and the host's UHD installation is untouched.
+
+### Native `make` build
+
 - Vivado 2024.2 installed (for bitfile generation)
 - CMake 3.12+, GCC with C++17 support
 - `sudo` access for installing to `INSTALL_PREFIX`
@@ -132,12 +151,8 @@ and only the bitfile phase runs in the container.
 
 ### Host prerequisites
 
-- Docker (on Ubuntu: `sudo apt install docker.io && sudo usermod -aG docker $USER`,
-  then log out and back in).
-- Vivado 2024.2 installed on the host under `/tools/Xilinx` (override with
-  `VIVADO_DIR=/path/to/Xilinx`, the directory that contains `Vivado/2024.2`).
-- A Vivado license file, by default `~/.Xilinx/Xilinx_trial.lic` (override with
-  `LICENSE_FILE=...`).
+Docker, a Vivado 2024.2 install and its license file; see
+[Prerequisites](#docker-build) for the paths and how to override them.
 
 ### Usage
 
