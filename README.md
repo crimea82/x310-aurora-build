@@ -114,7 +114,31 @@ make clean              # remove all cloned sources and build artifacts
 
 ## Configuration
 
-All variables can be overridden on the command line:
+### Docker build
+
+Environment variables read by the `docker/` scripts; `docker/build-all.sh`
+passes them all through:
+
+| Variable | Default | Used by | Description |
+|---|---|---|---|
+| `BUILD_TARGET` | `X310_AA` (`X310_AA1` for `build-all.sh`) | `run.sh`, `build-all.sh` | `X310_AA` (Aurora SFP0) or `X310_AA1` (Aurora SFP1) |
+| `JOBS` | `4` | all | Parallel jobs for compiling the image and for Vivado |
+| `VIVADO_DIR` | `/tools/Xilinx` | `run.sh` | Host directory containing `Vivado/2024.2`, mounted read-only |
+| `LICENSE_FILE` | `~/.Xilinx/Xilinx_trial.lic` | `run.sh` | Host Vivado license file, mounted read-only |
+| `OUTPUT_DIR` | `./output` | `run.sh` | Host directory that receives bitfiles, logs and RPMs |
+| `BUILD_IP_DIR` | unset (`./build-ip` for `build-all.sh`) | `run.sh`, `build-all.sh` | Host directory for the generated-IP cache; reruns skip IP generation |
+| `IMAGE` | `x310-aurora-build:ol8` | `run.sh` | Image tag to run |
+| `TARGET` | unset (final stage) | `build.sh` | Build only up to this Dockerfile stage, e.g. `builder` to skip the RPM stages |
+
+Example — build the SFP1 variant with Vivado installed elsewhere:
+
+```bash
+VIVADO_DIR=/opt/Xilinx LICENSE_FILE=~/licenses/vivado.lic docker/build-all.sh X310_AA1
+```
+
+### Native `make` build
+
+All variables can be overridden on the `make` command line:
 
 | Variable | Default | Description |
 |---|---|---|
@@ -134,7 +158,27 @@ Example — build the SFP1 Aurora variant with a custom Vivado path:
 make BUILD_TARGET=X310_AA1 VIVADO_PATH=/opt/Xilinx/Vivado
 ```
 
-## Build targets
+## Build phases
+
+### Docker build
+
+The image is built in stages by `docker/Dockerfile`; the software phases run
+inside the image, the bitfile phase runs in a container from it:
+
+| Stage / step | What it does |
+|---|---|
+| `base` | Oracle Linux 8 with EPEL, CodeReady, `gcc-toolset-13`, `boost1.78`, Python 3.11 and the RPM tooling |
+| `sources` | Clone + patch UHD and rfnoc-oot-blocks (same Makefile as the native build) |
+| `builder` | Build + install UHD and rfnoc-oot-blocks (with Python bindings) to `/usr/local` |
+| `rpmbuild` | Build the RPMs from the patched sources with prefix `/usr` |
+| `rpmtest` | Install the RPMs on a stock `oraclelinux:8` and run import/tool checks |
+| `final` | `builder` plus the tested RPMs and the entrypoint; this is the image `docker/run.sh` uses |
+| `docker/run.sh` | Run `make bitfile` inside the container with the host's Vivado, then package the images RPM |
+
+Docker caches each stage, so rerunning `docker/build.sh` after a change to
+`rpm/` or `docker/` only rebuilds from the affected stage onward.
+
+### Native `make` build
 
 Each phase depends on the previous and is tracked by a stamp file in `.stamps/`.
 Rerunning `make` after a partial build resumes from where it left off.
@@ -143,19 +187,41 @@ Rerunning `make` after a partial build resumes from where it left off.
 |---|---|
 | `uhd` | Clone + patch + build + install UHD host |
 | `rfnoc` | Clone + patch + build + install rfnoc-oot-blocks |
-| `bitfile` | Run `rfnoc_image_builder` to produce `x300.bit` |
+| `bitfile` | Run `rfnoc_image_builder` to produce the bitfile |
 | `all` | All of the above in order |
 | `clean` | Remove all cloned sources, build trees, and stamp files |
 
 ## Output
 
-The bitfile is written by `rfnoc_image_builder` into the `rfnoc-oot-blocks/build/`
+The bitfile is named `usrp_x310_fpga_Aurora.*` for `X310_AA` and
+`usrp_x310_fpga_Aurora1.*` for `X310_AA1`.
+
+### Docker build
+
+Everything is copied to `./output/` on the host (or `OUTPUT_DIR`) and chowned
+to the invoking user; nothing else survives the container:
+
+```
+output/usrp_x310_fpga_Aurora1.bit            # also .bin, .lvbitx and the .rpt summary
+output/build-usrp_x310_fpga_Aurora1/         # Vivado build.log, timing, utilization and DRC reports
+output/rpms/*.rpm                            # software RPMs + uhd-images-x310-aurora
+output/rpms/repodata/                        # makes output/rpms usable as a dnf repository
+```
+
+The software stack itself stays inside the image, installed under `/usr/local`
+(`docker/run.sh bash` to inspect it); install it on other machines from the RPMs.
+
+### Native `make` build
+
+UHD and rfnoc-oot-blocks are installed to `INSTALL_PREFIX` (`/usr/local`). The
+bitfile is written by `rfnoc_image_builder` into the `rfnoc-oot-blocks/build/`
 directory inside the rfnoc source tree:
 
 ```
 rfnoc-patches/rfnoc-oot-blocks/build/usrp_x310_fpga_Aurora.bit
 rfnoc-patches/rfnoc-oot-blocks/build/usrp_x310_fpga_Aurora.bin
 rfnoc-patches/rfnoc-oot-blocks/build/usrp_x310_fpga_Aurora.lvbitx
+rfnoc-patches/rfnoc-oot-blocks/build-usrp_x310_fpga_Aurora/   # Vivado logs and reports
 ```
 
 ## Docker build (Oracle Linux 8)
@@ -167,33 +233,26 @@ bindings) already built and installed. Vivado is **not** in the image; the host
 install is bind-mounted read-only at run time, together with the license file,
 and only the bitfile phase runs in the container.
 
-### Host prerequisites
+The host prerequisites, commands, variables and output locations are in the
+[Prerequisites](#docker-build), [Usage](#docker-build-1),
+[Configuration](#docker-build-2) and [Output](#docker-build-4) sections above.
+This section covers how the pieces fit together.
 
-Docker, a Vivado 2024.2 install and its license file; see
-[Prerequisites](#docker-build) for the paths and how to override them.
+### Scripts
 
-### Usage
-
-```bash
-docker/build.sh                      # build the image (~20 min on 8 cores, needs network)
-docker/run.sh license-check          # ~2 min: Vivado starts and checks out a K7 license
-docker/run.sh                        # build the bitfile (X310_AA), ~25 min on 8 cores
-BUILD_TARGET=X310_AA1 docker/run.sh  # the SFP1 variant
-docker/run.sh rpms                   # write the RPMs to ./output/rpms (no Vivado needed)
-docker/run.sh bash                   # interactive shell in the image
-docker/build-all.sh X310_AA1         # all of the above in one go for one target
-```
-
-`docker/build.sh` also builds and self-tests the RPM packages (see
-[RPM packages](#rpm-packages)); set `TARGET=builder` to skip that while
-iterating on the bitfile flow.
-
-Results are copied to `./output/` on the host (`usrp_x310_fpga_Aurora*.bit`,
-`.bin`, `.lvbitx`, `.rpt`, plus the Vivado logs under `output/build-usrp_x310_fpga_*/`)
-and chowned to the invoking user. Everything else in the container is discarded
-when it exits. Set `BUILD_IP_DIR=$PWD/build-ip` to keep the generated-IP cache
-between runs (IP generation is roughly the first third of the run). `JOBS`
-(default 4) controls parallelism for both scripts.
+- `docker/build-all.sh [X310_AA|X310_AA1]` runs the three steps below in order
+  for one target, keeping the IP cache in `./build-ip`.
+- `docker/build.sh` builds the image. It also builds and self-tests the RPM
+  packages (see [RPM packages](#rpm-packages)); set `TARGET=builder` to skip
+  that while iterating on the bitfile flow.
+- `docker/run.sh license-check` starts Vivado from the mounted install and checks
+  out a Kintex-7 license. Run it before the long build.
+- `docker/run.sh` builds the bitfile for `BUILD_TARGET`, copies the results to
+  `./output/`, then packages the images RPM and refreshes `./output/rpms`.
+  IP generation is roughly the first third of the run; set `BUILD_IP_DIR` to
+  keep the generated-IP cache between runs.
+- `docker/run.sh rpms` writes the RPMs without starting Vivado;
+  `docker/run.sh bash` opens a shell in the image.
 
 ### How licensing works in the container
 
@@ -234,9 +293,10 @@ actually checks out a Kintex-7 license. Run it before the long build.
 
 ## RPM packages
 
-The image also builds RPMs of the whole software stack so that any Oracle
-Linux 8 (or RHEL 8 compatible) system can install it with `dnf`, without a
-source build:
+The Docker route also builds RPMs of the whole software stack so that any
+Oracle Linux 8 (or RHEL 8 compatible) system can install it with `dnf`,
+without a source build. The native `make` build does not produce packages; it
+installs straight to `INSTALL_PREFIX`.
 
 | Package | Contents |
 |---|---|
