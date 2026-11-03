@@ -86,6 +86,24 @@ make VIVADO_PATH=/opt/Xilinx/Vivado
 
 ## Usage
 
+### Docker build
+
+```bash
+docker/build-all.sh X310_AA1         # image + license check + bitfile + RPMs for one target
+docker/build.sh                      # build the image only (~20 min on 8 cores, needs network)
+docker/run.sh license-check          # ~2 min: Vivado starts and checks out a K7 license
+docker/run.sh                        # build the bitfile (X310_AA), ~25 min on 8 cores
+BUILD_TARGET=X310_AA1 docker/run.sh  # the SFP1 variant
+docker/run.sh rpms                   # write the RPMs to ./output/rpms (no Vivado needed)
+docker/run.sh bash                   # interactive shell in the image
+```
+
+Results land in `./output/`. See [Docker build](#docker-build-oracle-linux-8)
+for the environment variables (`VIVADO_DIR`, `LICENSE_FILE`, `BUILD_IP_DIR`,
+`JOBS`) and caveats.
+
+### Native `make` build
+
 ```bash
 make                    # build everything (X310_AA by default)
 make uhd                # run through UHD install only
