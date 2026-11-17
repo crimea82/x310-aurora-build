@@ -382,3 +382,14 @@ The X310 stores IP addresses in EEPROM with factory defaults:
 
 **X310_AA1** (Aurora on SFP1): connect host NIC to SFP0, set host address to
 `192.168.10.1/24`. UHD reaches the X310 at `192.168.10.2`.
+
+## Streaming RF over Aurora
+
+With the image loaded, the 1 GigE port is used for control only and IQ data
+moves between the radio chain and the Aurora link inside the FPGA. The
+rfnoc-oot-blocks patch repo documents this, including the `rx_to_aurora.py`
+(Radio to DDC to Aurora) and `tx_from_aurora.py` (Aurora to DUC to Radio)
+examples and the loopback tests:
+[Streaming RF over Aurora with 1 GigE control](https://github.com/crimea82/rfnoc-oot-blocks-x310-aurora-patches#streaming-rf-over-aurora-with-1-gige-control).
+The same text is in `rfnoc-patches/rfnoc-oot-blocks/README.md` after `make`,
+and the examples are installed to `<prefix>/share/uhd/examples/rfnoc-oot-blocks/`.
